@@ -1,0 +1,405 @@
+ //taking linked list pointer as globle variable
+#include<stdlib.h>
+#include<stdio.h>
+#include<unistd.h>
+//#include<iostream>
+#include<time.h>
+//#include<thread>
+#include<pthread.h>
+//using namespace std;
+
+pthread_mutex_t L,P;
+int T_TOTAL = 0;		// total time spent processing 
+int SIGNAL = 0;			// if 1 then then keep processing if 0 then no process
+int S_SIGNAL = 0;		// if 1 then student thread has some work to do
+int F_SIGNAL = 0;		// if 1 then Faculty thread has some work to do
+//int TIME = 0;			// total time spent processing and also helps in setting arival time of a process
+//int SIGNAL = 0;       // if 1 indicates time thread is already created
+int PNS = 0;			// process no which we give to upcoming student process
+int PNF = 0;			// process no which we give to upcoming faculty process
+//int TOTAL_TIME = 0;		// Total time
+int NOF_PROCESS = 0;		// NOF_PROCESS : total no of process
+int TBT = 0;                    // Total burst time
+int TRT = 0;                    // Total running time
+
+//---------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------
+
+struct Node{
+	int pno;      // pno : process number
+	int bt;       // bt : burst time
+	int at;       // at : arival time
+	int pt;       // pt : process type (1: student , 2:faculty)
+	struct Node *link;   // link to next node
+}*new_node ,*start_stud = NULL, *start_faculty = NULL, *start = NULL,*start_final = NULL, *ptr, *ptr2;   // *start is for common Linked List
+
+
+void insert(int process,int no,int burst,int arival)
+{
+	new_node = (struct Node *) malloc(sizeof(struct Node));
+	new_node->pt = process;
+	new_node->pno = no;
+	new_node->bt = burst;
+	new_node->at = arival;
+	new_node->link = NULL;
+	if (start == NULL)
+		start = new_node;
+	else
+	{
+		ptr = start;
+		while(ptr->link != NULL)
+			ptr = ptr->link;
+		ptr->link = new_node;
+	}
+}
+void insert2(int process,int no,int burst,int arival)
+{
+	new_node = (struct Node *) malloc(sizeof(struct Node));
+	new_node->pt = process;
+	new_node->pno = no;
+	new_node->bt = burst;
+	new_node->at = arival;
+	new_node->link = NULL;
+	if(process ==1){
+		if (start_stud == NULL)
+			start_stud = new_node;
+		else
+		{
+			ptr = start_stud;
+			while(ptr->link != NULL)
+				ptr = ptr->link;
+			ptr->link = new_node;
+		}
+	}
+	else if(process ==2){
+		if (start_faculty == NULL)
+			start_faculty = new_node;
+		else
+		{
+			ptr = start_faculty;
+			while(ptr->link != NULL)
+				ptr = ptr->link;
+			ptr->link = new_node;
+		}
+	}
+}
+
+
+
+void show()
+{
+	ptr = start;
+	printf("\n      PROCESS                 ARIVAL TIME                  BURST TIME\n");
+	printf("----------------------------------------------------------------------------\n");
+
+	while (ptr != NULL)
+	{	if(ptr->pt == 1)
+			printf("      P_S%d",ptr->pno);
+		else
+			printf("      P_F%d",ptr->pno);
+		printf("\t\t\t%d\t\t\t\t%d\n",ptr->at, ptr->bt);
+		ptr = ptr->link;
+	}
+        printf("\n----------------------------------------------------------------------------\n");
+	printf("\nTotal no of process : %d\n",PNS + PNF);
+	printf("Total no of Student Process %d\n: ",PNS);
+	printf("Total no of Faculty Process : %d\n",PNF);
+	printf("Total time CPU utilised : %d\n",TBT);
+}
+
+void insert_result(int process,int no,int burst,int arival)
+{
+	new_node = (struct Node *) malloc(sizeof(struct Node));
+	new_node->pt = process;
+	new_node->pno = no;
+	new_node->bt = burst;
+	new_node->at = arival;
+	new_node->link = NULL;
+	if (start_final== NULL)
+		start_final = new_node;
+	else
+	{
+		ptr = start_final;
+		while(ptr->link != NULL)
+			ptr = ptr->link;
+		ptr->link = new_node;
+	}
+	
+}
+
+
+void show_result()
+{
+	ptr = start_final;
+	int time = 0;
+	printf("\n----------------------------------- ROUND ROBIN with time quantam(2)-----------------------------------\n\n");
+	printf("=======================================================================================================\n");
+	printf("(%d)",time);
+	while (ptr != NULL)
+	{
+		int i = 0;
+		for(i = 0; i<5 ;i++)
+		{
+			time+=ptr->bt;
+			if(ptr->pt == 1)
+				printf("| P_S%d ",ptr->pno);
+			else if(ptr->pt == 2)
+				printf("| P_F%d ",ptr->pno);
+			else if(ptr->pt ==0)
+				printf("| NULL ");
+			printf(" ( %d ) |-->>",time);
+			ptr = ptr->link;
+		}
+		printf("\n=======================================================================================================\n");
+	}
+        printf("\n\n----------------------------------------------------------------------------------------------------\n");
+
+}
+
+
+// in this program we assume all times are in second: and we are taking time quantam of 2 sec;
+
+void* student(){							// Function for student thread
+	printf("stu1\n");
+	ptr = start_stud;
+	while(ptr!=NULL){
+		if(ptr->at < T_TOTAL){				// checks for if this thread has nothing to do. ( if yes ) then,
+				pthread_mutex_lock(&L);		// acure Lock 
+				T_TOTAL = T_TOTAL + 2;
+//				sleep(2);
+        	int pn = ptr->pno;
+        	int at = ptr->at;
+			int bt = ptr->bt;
+			if(bt>2){
+				T_TOTAL+=2;
+//				sleep(2);
+				insert_result(1,pn,2,at);
+				ptr->bt = bt-2;
+			}
+			else if(bt == 2){
+				T_TOTAL+=2;
+//				sleep(2);
+				insert_result(1,pn,2,at);
+				ptr = ptr->link;
+			}
+			else if(bt == 1)
+			{
+				T_TOTAL+=1;
+//				sleep(1);
+				insert_result(1,pn,1,at);
+				ptr = ptr->link;
+				if(ptr!=NULL)
+				{
+					T_TOTAL+=1;
+					if(ptr->bt >1)
+					{
+//						sleep(1);
+						insert_result(1,pn+1,1,at);
+						ptr->bt = ptr->bt-1;
+					}
+					else
+					{
+						T_TOTAL+=1;
+//						sleep(1);
+						insert_result(1,pn,1,at);
+						ptr = ptr->link;
+					}
+				}
+			}
+			start_stud = ptr;
+				pthread_mutex_unlock(&L);
+				sleep(1);	
+		}
+		else
+		{
+			if(start_faculty == NULL)
+			{
+				pthread_mutex_lock(&L);
+				int diff  = ptr->at - T_TOTAL;
+				T_TOTAL+=diff;
+				insert_result(0,0,diff,0);
+				pthread_mutex_unlock(&L);
+			}
+			else if(start_faculty->at > T_TOTAL)
+			{
+				pthread_mutex_lock(&L);
+				int diff;
+				if(start_faculty->at >ptr->at)
+					diff  = ptr->at - T_TOTAL;
+				else
+					diff  = start_faculty->at - T_TOTAL;
+				T_TOTAL+=diff;
+				insert_result(0,0,diff,0);
+				pthread_mutex_unlock(&L);
+				sleep(1);
+			}
+			else
+				sleep(1);
+		}
+	}
+	printf("is2\n");
+}
+
+
+
+void* faculty()
+{							// Function for faculty thread
+	printf("f1\n");
+	ptr2 = start_faculty;
+	while(ptr2!=NULL){
+		if(ptr2->at < T_TOTAL){				// checks for if this thread has nothing to do. ( if yes ) then,
+				pthread_mutex_lock(&L);		// acure Lock 
+				T_TOTAL = T_TOTAL + 2;
+//				sleep(2);
+        	int pn = ptr2->pno;
+        	int at = ptr2->at;
+			int bt = ptr2->bt;
+			if(bt>2){
+				T_TOTAL+=2;
+//				sleep(2);
+				insert_result(2,pn,2,at);
+				ptr2->bt = bt-2;
+			}
+			else if(bt == 2){
+				T_TOTAL+=2;
+//				sleep(2);
+				insert_result(2,pn,2,at);
+				ptr2 = ptr2->link;
+			}
+			else if(bt == 1)
+			{
+				T_TOTAL+=1;
+//				sleep(1);
+				insert_result(2,pn,1,at);
+				ptr2 = ptr2->link;
+				if(ptr2!=NULL)
+				{
+					T_TOTAL+=1;
+					if(ptr2->bt >1)
+					{
+//						sleep(1);
+						insert_result(2,pn+1,1,at);
+						ptr2->bt = ptr2->bt-1;
+					}
+					else
+					{
+						T_TOTAL+=1;
+//						sleep(1);
+						insert_result(2,pn,1,at);
+						ptr2 = ptr2->link;
+					}
+				}
+			}
+			start_faculty = ptr2;
+				pthread_mutex_unlock(&L);
+				sleep(1);	
+		}
+		
+		else
+		{
+			if(start_stud == NULL)
+			{
+				pthread_mutex_lock(&L);
+				int diff  = ptr2->at - T_TOTAL;
+				T_TOTAL+=diff;
+				insert_result(0,0,diff,0);
+				pthread_mutex_unlock(&L);
+			}
+			else if(start_stud->at > T_TOTAL)
+			{
+				pthread_mutex_lock(&L);
+				int diff;
+				if(start_stud->at >ptr2->at)
+					diff  = ptr2->at - T_TOTAL;
+				else
+					diff  = start_stud->at - T_TOTAL;
+				T_TOTAL+=diff;
+				insert_result(0,0,diff,0);
+				pthread_mutex_unlock(&L);
+				sleep(1);
+			}
+			else
+				sleep(1);
+		}
+	}
+	printf("if2\n");
+}
+
+int main()
+{	
+	int arive_t = 0, p_at = 0,nop,p_type[5],p_bt[5];        		// nop :no of process generated , p_type :(student, faculty), p_bt :process burst time
+	int sum_bt = 0,sleep_t = 0,sum_st = 0;        		// sum_bt : sum of burst time, sum_st : sum of sleep time
+	pthread_mutex_init(&L,NULL);
+	pthread_mutex_init(&P,NULL);
+	int j = 1;
+	while(j!=0)
+	{
+		printf("no of process you want to place in system together (max 5 and < 0 to exit) : ");
+		scanf("%d",&nop);
+		if(nop < 0){
+			j = 0;
+			break;
+		}
+		else if(nop<=5)
+		{
+			int signal = 0;		// if there is error any in data this flag will bwcome 1 and abort further entry and restart
+			printf("\nenter arival time of process (should be in increasing order ): ");
+			scanf("%d",&arive_t);
+			if(p_at > arive_t)
+				signal = 1;
+			int i =0;
+			for(i =0;i<nop;i++)
+			{
+				printf("\nfor process no %d enter type of process (1:student, 2:faculty) : ",i+1);
+				scanf("%d",&p_type[i]);
+				if(p_type[i]<1 || p_type[i]>2)
+				{
+					signal =1;
+					break;
+				}
+				printf("\nfor process %d enter burst time for process (max : 12) %d : ",i+1,i);// defines burst time of each process)
+				scanf("%d",&p_bt[i]);
+				if(p_bt[i]<1 || p_bt[i]>12)
+                {
+                    signal =1;
+                    break;
+            	}
+			}
+			p_at = arive_t;	
+			if(signal != 1)
+			{
+				int i =0;
+				for(i=0;i<nop;i++)
+				{
+					sum_bt =sum_bt + p_bt[i]; 			// will be used for comperision purpose to calculate totaltime process run
+          			NOF_PROCESS = NOF_PROCESS + 1;          	// incrementing in total no of process
+					if (p_type[i] == 1)                   		// checking for process to be of student type
+					{				      		// (if true)
+						PNS = PNS + 1;				// incrementing in total no of student process
+						insert2(1 , NOF_PROCESS , p_bt[i], arive_t);	// calling to incert in queue of student process
+						insert(1 , PNS , p_bt[i] , arive_t);		// calling to incert in total process queue
+					}
+					else						// if process is of faculty type
+  					{
+            			PNF = PNF + 1;				// incrementing in total no of faculty process
+        				insert2(2 , NOF_PROCESS , p_bt[i], arive_t);	//calling to incert faculty process queue
+        		    	insert(2 , PNF , p_bt[i] , arive_t);		//calling to incert in total process queue
+       				}
+				}
+				TBT = TBT+sum_bt;
+				sum_bt = 0;
+			}	
+		}
+		printf("\nDo you wish to add new process ( 1:yes 0:no) : ");
+		scanf("%d",&j);
+	}
+	pthread_t T1,T2;
+	pthread_create(&T1,NULL,faculty,NULL);
+	pthread_create(&T2,NULL,student,NULL);
+	pthread_join(T1,NULL);
+	pthread_join(T2,NULL);
+	show();
+	show_result();
+	return 0;
+}
